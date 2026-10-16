@@ -4,6 +4,7 @@
 - **Sinh viên thực hiện:** Đinh Hồng Phong - 24TX810013
 - **Thời gian báo cáo:** Tuần 2
 - **Repository:** [phongdh262/kltn-k8s-gitops-ai](https://github.com/phongdh262/kltn-k8s-gitops-ai)
+- **Commit Tuần 2:** [5e9a608](https://github.com/phongdh262/kltn-k8s-gitops-ai/commit/5e9a60850bf48f1a50e4eb840adee958713a38e8)
 
 ---
 
@@ -22,7 +23,7 @@
   - **VPS 02 (Worker 1):** Public IP `103.110.85.111` | Hostname: `k3s-worker-01`
   - **VPS 03 (Worker 2):** Public IP `103.110.85.145` | Hostname: `k3s-worker-02`
 - Đổi hostname, cập nhật hệ điều hành và cài đặt các gói công cụ mạng bổ trợ.
-- Tắt Swap triệt để (`swapoff -a` và chỉnh `/etc/fstab`) để K3s quản lý bộ nhớ và cấp phát tài nguyên chính xác.
+- Tắt Swap (`swapoff -a` và chỉnh `/etc/fstab`).
 - Nạp Kernel Modules (`overlay`, `br_netfilter`) và kích hoạt `net.ipv4.ip_forward = 1` trong sysctl.
 - Đồng bộ thời gian múi giờ Việt Nam (`Asia/Ho_Chi_Minh`) và kích hoạt NTP.
 
@@ -45,7 +46,11 @@
 
 ---
 
-## 3. Kết quả
+## 3. Minh chứng kết quả trên GitHub
+
+- **Báo cáo Tuần 2:** [docs/week2.md](https://github.com/phongdh262/kltn-k8s-gitops-ai/blob/main/docs/week2.md)
+- **Link Commit Tuần 2:** [5e9a608](https://github.com/phongdh262/kltn-k8s-gitops-ai/commit/5e9a60850bf48f1a50e4eb840adee958713a38e8)
+- **Bảng quy hoạch VPS:** [Ha_tang/quy_hoach_vps.md](https://github.com/phongdh262/kltn-k8s-gitops-ai/blob/main/Ha_tang/quy_hoach_vps.md)
 
 ### 3.1. Cài đặt OS & Tắt Swap:
 - **VPS 01 (Master):** [Ha_tang/cau_hinh/01_OS/vps01_k3s_master.md](https://github.com/phongdh262/kltn-k8s-gitops-ai/blob/main/Ha_tang/cau_hinh/01_OS/vps01_k3s_master.md) (Ảnh hostname: `image.png`, Ảnh Swap = 0B: `image-1.png`, Ảnh sysctl: `image-2.png`)
@@ -64,7 +69,22 @@
 
 ---
 
-## 4. Kế hoạch tuần 3
+## 4. Khai báo sử dụng AI
+- **Tên công cụ & Phiên bản:** Google Gemini 3.8 flash
+- **Mục đích:** Hỗ trợ tìm kiếm tài liệu kỹ thuật, gợi ý cấu trúc báo cáo so sánh các giải pháp hạ tầng.
+- **Phần AI hỗ trợ/tạo ra:**
+  - Khung sườn dàn ý và nội dung lý thuyết tổng quan trong thư mục `Cong_nghe/`.
+  - Mẫu cú pháp file cấu hình khởi tạo cho WireGuard (`wg0.conf`) và danh mục tham số kernel (`sysctl.conf`).
+- **Phần sinh viên tự thực hiện và kiểm chứng:**
+  - Trực tiếp cài đặt, cấu hình, kiểm tra trên 03 VPS.
+  - Chụp ảnh màn hình và làm file tài liệu cấu hình tại thư mục `Ha_tang/cau_hinh/`.
+- **Link minh chứng:**
+  - Commit triển khai: [5e9a608](https://github.com/phongdh262/kltn-k8s-gitops-ai/commit/5e9a60850bf48f1a50e4eb840adee958713a38e8)
+  - Thư mục cấu hình & ảnh thực tế: [Ha_tang/cau_hinh/](https://github.com/phongdh262/kltn-k8s-gitops-ai/tree/main/Ha_tang/cau_hinh)
+
+---
+
+## 5. Kế hoạch Tuần 3
 1. Cài đặt cụm **K3s Server** trên VPS 01 (Master), cấu hình trên IP WireGuard `10.10.0.1`.
 2. Cài đặt và kết nối 2 **K3s Agent** trên VPS 02 và VPS 03.
 3. Kiểm tra hoạt động của cụm (`kubectl get nodes`), phân bổ NodeSelector / Labels cho các node.
