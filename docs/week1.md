@@ -36,9 +36,14 @@
 - Dải IP mạng nội bộ WireGuard (`10.10.0.1`, `10.10.0.2`, `10.10.0.3`).
 - Bảng quy hoạch: [Ha_tang/quy_hoach_vps.md](https://github.com/phongdh262/kltn-k8s-gitops-ai/blob/main/Ha_tang/quy_hoach_vps.md)
 
+### 2.3. Minh chứng trên GitHub
+- **Báo cáo chi tiết Tuần 1:** [docs/week1.md](https://github.com/phongdh262/kltn-k8s-gitops-ai/blob/main/docs/week1.md)
+- **Link Commit tài liệu Tuần 1:** [5e9a608](https://github.com/phongdh262/kltn-k8s-gitops-ai/commit/5e9a60850bf48f1a50e4eb840adee958713a38e8)
+- **Thư mục tài liệu:** [Cong_nghe/](https://github.com/phongdh262/kltn-k8s-gitops-ai/tree/main/Cong_nghe)
+
 ---
 
-## 3. Kế hoạch tuần Tuần 2
+## 3. Kế hoạch Tuần 2
 1. Cài đặt 03 VPS độc lập với IP Public.
 2. Cài đặt hệ điều hành Ubuntu 24.04 LTS, tắt Swap, nạp kernel modules (`overlay`, `br_netfilter`), bật `ip_forward`.
 3. Cài đặt và cấu hình tường lửa CSF + LFD trên cả 3 node, mở port dịch vụ.
