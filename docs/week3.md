@@ -4,7 +4,7 @@
 - **Sinh viên thực hiện:** Đinh Hồng Phong - 24TX810013
 - **Thời gian báo cáo:** Tuần 3
 - **Repository:** [phongdh262/kltn-k8s-gitops-ai](https://github.com/phongdh262/kltn-k8s-gitops-ai)
-- **Commit Tuần 3:** `<LINK_COMMIT_TUAN_3>`
+- **Commit Tuần 3:** [f99af6e](https://github.com/phongdh262/kltn-k8s-gitops-ai/commit/f99af6ebfd84364877edf7b0891db8acdffae285)
 
 ---
 
@@ -68,7 +68,7 @@
 ## 3. Minh chứng kết quả trên GitHub
 
 - **Báo cáo Tuần 3:** [docs/week3.md](https://github.com/phongdh262/kltn-k8s-gitops-ai/blob/main/docs/week3.md)
-- **Link Commit Tuần 3:** `<LINK_COMMIT_TUAN_3>`
+- **Link Commit Tuần 3:** [f99af6e](https://github.com/phongdh262/kltn-k8s-gitops-ai/commit/f99af6ebfd84364877edf7b0891db8acdffae285)
 - **Thư mục cấu hình K3s Cluster:** [Ha_tang/cau_hinh/04_K3s_Cluster/](https://github.com/phongdh262/kltn-k8s-gitops-ai/tree/main/Ha_tang/cau_hinh/04_K3s_Cluster)
 
 ### 3.1. Cài đặt K3s Master (VPS 01):
