@@ -4,7 +4,7 @@
 - **Sinh viên thực hiện:** Đinh Hồng Phong - 24TX810013
 - **Thời gian báo cáo:** Tuần 4
 - **Repository:** [phongdh262/kltn-k8s-gitops-ai](https://github.com/phongdh262/kltn-k8s-gitops-ai)
-- **Commit Tuần 4:**
+- **Commit Tuần 4:** [bf42672](https://github.com/phongdh262/kltn-k8s-gitops-ai/commit/bf42672) 
 
 ---
 
