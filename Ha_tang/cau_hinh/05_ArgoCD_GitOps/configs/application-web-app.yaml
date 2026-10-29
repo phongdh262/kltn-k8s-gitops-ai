@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: web-app-gitops
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: "https://github.com/phongdh262/kltn-k8s-gitops-ai.git"
+    targetRevision: HEAD
+    path: "Ha_tang/cau_hinh/05_ArgoCD_GitOps/manifests"
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: demo-app
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true

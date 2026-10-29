@@ -1,0 +1,54 @@
+# Tắt Alertmanager để tiết kiệm tài nguyên
+alertmanager:
+  enabled: false
+
+# Cấu hình Prometheus Server
+prometheus:
+  prometheusSpec:
+    # Giới hạn lưu trữ metrics 3 ngày
+    retention: 3d
+    # Pod Prometheus chạy trên Worker 2 (VPS 03)
+    nodeSelector:
+      workload: monitoring
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1.5Gi
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 10Gi
+
+# Cấu hình Grafana Dashboard
+grafana:
+  # Pod Grafana chạy trên Worker 2 (VPS 03)
+  nodeSelector:
+    workload: monitoring
+  adminPassword: "AdminGrafana2026!"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  persistence:
+    enabled: true
+    storageClassName: local-path
+    size: 2Gi
+
+# Node Exporter chạy trên 3 Node để đo đạc tài nguyên phần cứng
+nodeExporter:
+  enabled: true
+
+# Kube State Metrics theo dõi trạng thái các Kubernetes
+kubeStateMetrics:
+  nodeSelector:
+    workload: monitoring
