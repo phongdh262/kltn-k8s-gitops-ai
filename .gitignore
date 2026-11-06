@@ -7,3 +7,9 @@ ehthumbs.db
 Thumbs.db
 wg_key.md
 huong_dan_noi_bo/
+.agents/
+Rubric_Do_An_Mon_Hoc_CNPM_v2.docx.md
+.env
+*.secret.local.yaml
+__pycache__/
+.venv/
