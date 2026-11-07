@@ -1,0 +1,128 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chatops-agent
+  namespace: operations
+  labels:
+    app: chatops-agent
+    app.kubernetes.io/version: "1.0.0"
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: chatops-agent
+  template:
+    metadata:
+      labels:
+        app: chatops-agent
+    spec:
+      serviceAccountName: chatops-agent-sa
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: workload
+                    operator: In
+                    values:
+                      - operations-argocd
+            - weight: 50
+              preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/worker
+                    operator: Exists
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: agent
+          image: ghcr.io/phongdh262/kltn-chatops-agent:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TARGET_APP_NAMESPACE
+              value: "demo-app"
+            - name: TARGET_DEPLOYMENT_NAME
+              value: "web-app"
+            - name: ARGOCD_NAMESPACE
+              value: "argocd"
+            - name: ARGOCD_APP_NAME
+              value: "web-app-gitops"
+            - name: PROMETHEUS_URL
+              value: "http://monitoring-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090"
+            - name: TELEGRAM_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: chatops-secrets
+                  key: TELEGRAM_BOT_TOKEN
+            - name: ALLOWED_CHAT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: chatops-secrets
+                  key: ALLOWED_CHAT_ID
+            - name: ALLOWED_USER_IDS
+              valueFrom:
+                secretKeyRef:
+                  name: chatops-secrets
+                  key: ALLOWED_USER_IDS
+                  optional: true
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: chatops-secrets
+                  key: GEMINI_API_KEY
+            - name: GROQ_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: chatops-secrets
+                  key: GROQ_API_KEY
+                  optional: true
+            - name: GEMINI_ROUTER_MODEL
+              value: "gemini-flash-lite-latest"
+            - name: GEMINI_REASONING_MODEL
+              value: "gemini-flash-lite-latest"
+            - name: GROQ_FALLBACK_MODEL
+              value: "openai/gpt-oss-20b"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp-dir
+              mountPath: /tmp
+          readinessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2)"
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2)"
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            timeoutSeconds: 5
+      volumes:
+        - name: tmp-dir
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi

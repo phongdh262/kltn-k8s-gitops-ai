@@ -18,14 +18,14 @@ class Settings:
     # Multi-Provider AI Gateway (Gemini Primary + Groq Auto-Failover)
     gemini_api_key: str = field(default_factory=lambda: os.getenv("GEMINI_API_KEY", ""))
     gemini_router_model: str = field(
-        default_factory=lambda: os.getenv("GEMINI_ROUTER_MODEL", "gemini-2.5-flash-lite")
+        default_factory=lambda: os.getenv("GEMINI_ROUTER_MODEL", "gemini-flash-lite-latest")
     )
     gemini_reasoning_model: str = field(
-        default_factory=lambda: os.getenv("GEMINI_REASONING_MODEL", "gemini-2.5-flash")
+        default_factory=lambda: os.getenv("GEMINI_REASONING_MODEL", "gemini-flash-lite-latest")
     )
     groq_api_key: str = field(default_factory=lambda: os.getenv("GROQ_API_KEY", ""))
     groq_fallback_model: str = field(
-        default_factory=lambda: os.getenv("GROQ_FALLBACK_MODEL", "llama-3.3-70b-versatile")
+        default_factory=lambda: os.getenv("GROQ_FALLBACK_MODEL", "openai/gpt-oss-20b")
     )
 
     # Cluster & Monitoring Read-Only Targets (via WireGuard wg0)
