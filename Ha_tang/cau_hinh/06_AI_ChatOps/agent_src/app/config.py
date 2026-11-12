@@ -8,14 +8,14 @@ def _parse_csv_set(raw: str) -> set[str]:
 
 @dataclass(frozen=True)
 class Settings:
-    # Telegram Configuration (v1.0 — Outbound Async Long-Polling)
+    # Telegram Configuration
     telegram_bot_token: str = field(default_factory=lambda: os.getenv("TELEGRAM_BOT_TOKEN", ""))
     allowed_chat_id: str = field(default_factory=lambda: os.getenv("ALLOWED_CHAT_ID", "").strip())
     allowed_user_ids: set[str] = field(
         default_factory=lambda: _parse_csv_set(os.getenv("ALLOWED_USER_IDS", ""))
     )
 
-    # Multi-Provider AI Gateway (Gemini Primary + Groq Auto-Failover)
+    # Multi-Provider AI Gateway (Gemini Primary + Groq Failover)
     gemini_api_key: str = field(default_factory=lambda: os.getenv("GEMINI_API_KEY", ""))
     gemini_router_model: str = field(
         default_factory=lambda: os.getenv("GEMINI_ROUTER_MODEL", "gemini-flash-lite-latest")
@@ -28,7 +28,7 @@ class Settings:
         default_factory=lambda: os.getenv("GROQ_FALLBACK_MODEL", "openai/gpt-oss-20b")
     )
 
-    # Cluster & Monitoring Read-Only Targets (via WireGuard wg0)
+    # Cluster & Monitoring Targets (via WireGuard wg0)
     target_app_namespace: str = field(
         default_factory=lambda: os.getenv("TARGET_APP_NAMESPACE", "demo-app")
     )
@@ -47,7 +47,13 @@ class Settings:
             "http://monitoring-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090",
         )
     )
-    health_port: int = field(default_factory=lambda: int(os.getenv("PORT", "8000")))
+
+    # Internal Webhook & Proactive K8s Watcher Settings
+    webhook_port: int = field(default_factory=lambda: int(os.getenv("PORT", "8000")))
+    webhook_secret: str = field(default_factory=lambda: os.getenv("WEBHOOK_SECRET", ""))
+    enable_k8s_watcher: bool = field(
+        default_factory=lambda: os.getenv("ENABLE_K8S_WATCHER", "true").lower() == "true"
+    )
 
 
 settings = Settings()

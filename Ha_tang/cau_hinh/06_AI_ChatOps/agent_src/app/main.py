@@ -3,26 +3,17 @@ import logging
 import signal
 
 import uvicorn
-from fastapi import FastAPI
 
 from app.bot import build_telegram_application
 from app.config import settings
+from app.watcher import run_proactive_k8s_watcher
+from app.webhooks import create_webhook_api
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)-7s | %(name)s | %(message)s",
 )
 logger = logging.getLogger("chatops.main")
-
-
-def create_health_api() -> FastAPI:
-    api = FastAPI(title="KLTN ChatOps Health Probe (v1.0)", docs_url=None, redoc_url=None)
-
-    @api.get("/healthz")
-    async def healthz() -> dict[str, str]:
-        return {"status": "ok", "version": "1.0.0"}
-
-    return api
 
 
 async def async_main() -> None:
@@ -36,32 +27,42 @@ async def async_main() -> None:
             pass
 
     bot_app = build_telegram_application()
+    fastapi_app = create_webhook_api(bot_app)
+
     uvicorn_cfg = uvicorn.Config(
-        app=create_health_api(),
-        host="127.0.0.1",
-        port=settings.health_port,
-        log_level="warning",
+        app=fastapi_app,
+        host="0.0.0.0",
+        port=settings.webhook_port,
+        log_level="info",
         access_log=False,
     )
     uvicorn_server = uvicorn.Server(uvicorn_cfg)
 
-    logger.info("Initializing Telegram Bot Async Long-Polling (v1.0 — Read-Only SRE)...")
+    logger.info("Initializing Telegram Bot Async Long-Polling...")
     await bot_app.initialize()
     await bot_app.start()
     assert bot_app.updater is not None
     await bot_app.updater.start_polling(drop_pending_updates=True)
 
-    server_task = asyncio.create_task(uvicorn_server.serve(), name="health-probe-server")
-    logger.info("AI ChatOps SRE Agent v1.0 is LIVE (TargetNamespace=%s).", settings.target_app_namespace)
+    server_task = asyncio.create_task(uvicorn_server.serve(), name="webhook-server")
+    watcher_task = asyncio.create_task(
+        run_proactive_k8s_watcher(bot_app, stop_event), name="k8s-watcher"
+    )
+
+    logger.info(
+        "AI ChatOps SRE Agent v1.1 is LIVE (Webhook Port=%d, TargetNamespace=%s).",
+        settings.webhook_port,
+        settings.target_app_namespace,
+    )
 
     await stop_event.wait()
-    logger.info("Shutting down AI ChatOps Agent v1.0 gracefully...")
+    logger.info("Shutting down AI ChatOps Agent gracefully...")
 
     uvicorn_server.should_exit = True
     await bot_app.updater.stop()
     await bot_app.stop()
     await bot_app.shutdown()
-    await asyncio.gather(server_task, return_exceptions=True)
+    await asyncio.gather(server_task, watcher_task, return_exceptions=True)
 
 
 def main() -> None:
