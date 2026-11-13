@@ -126,7 +126,7 @@ def create_webhook_api(bot_app: Application) -> FastAPI:
         background_tasks.add_task(
             _enrich_and_notify,
             bot_app,
-            f"📊 [METRIC ALERT — GRAFANA] ({state})",
+            f"[METRIC ALERT - GRAFANA] ({state})",
             summary_text,
             (
                 "Đây là cảnh báo vượt ngưỡng chỉ số tài nguyên/SLI từ Grafana Unified Alerting. "
@@ -167,7 +167,7 @@ def create_webhook_api(bot_app: Application) -> FastAPI:
         background_tasks.add_task(
             _enrich_and_notify,
             bot_app,
-            f"🔄 [GITOPS EVENT — ARGO CD] ({sync_status})",
+            f"[GITOPS EVENT - ARGO CD] ({sync_status})",
             event_text,
             (
                 "Đây là sự kiện trạng thái đồng bộ cấu hình từ Argo CD Notifications. "

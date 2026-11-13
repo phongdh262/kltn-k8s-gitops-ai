@@ -44,6 +44,9 @@ spec:
         - name: agent
           image: ghcr.io/phongdh262/kltn-chatops-agent:latest
           imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+              name: webhook-http
           env:
             - name: TARGET_APP_NAMESPACE
               value: "demo-app"
@@ -88,6 +91,14 @@ spec:
               value: "gemini-flash-lite-latest"
             - name: GROQ_FALLBACK_MODEL
               value: "openai/gpt-oss-20b"
+            - name: ENABLE_K8S_WATCHER
+              value: "true"
+            - name: WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: chatops-secrets
+                  key: WEBHOOK_SECRET
+                  optional: true
           resources:
             requests:
               cpu: 50m

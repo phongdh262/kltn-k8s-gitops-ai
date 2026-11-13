@@ -1,5 +1,6 @@
 import html
 import logging
+import re
 
 from telegram import Update
 from telegram.constants import ParseMode
@@ -34,6 +35,16 @@ def _safe_html(text: str) -> str:
     return html.escape(text)
 
 
+def _markdown_to_telegram_html(text: str) -> str:
+    """Chuyển đổi các thẻ Markdown cơ bản (**bold**, `code`, ###) sang HTML chuẩn của Telegram."""
+    escaped = html.escape(text.strip())
+    escaped = re.sub(r"^#{1,4}\s*(.+)$", r"<b>\1</b>", escaped, flags=re.MULTILINE)
+    escaped = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", escaped)
+    escaped = re.sub(r"`([^`\n]+)`", r"<code>\1</code>", escaped)
+    escaped = re.sub(r"^\s*-\s+", "• ", escaped, flags=re.MULTILINE)
+    return escaped
+
+
 async def send_sre_report(
     bot_app: Application,
     chat_id: int | str,
@@ -41,15 +52,16 @@ async def send_sre_report(
     sre_resp: SREResponse,
 ) -> None:
     severity_badge = {
-        "INFO": "ℹ️ INFO",
-        "WARNING": "⚠️ WARNING",
-        "CRITICAL": "🚨 CRITICAL",
-    }.get(sre_resp.severity, "ℹ️ INFO")
+        "INFO": "INFO",
+        "WARNING": "WARNING",
+        "CRITICAL": "CRITICAL",
+    }.get(sre_resp.severity, "INFO")
 
+    formatted_analysis = _markdown_to_telegram_html(sre_resp.analysis_markdown)
     body = (
         f"<b>{_safe_html(title)}</b> [{severity_badge}]\n"
         f"<i>Engine: {_safe_html(sre_resp.provider_used)}</i>\n\n"
-        f"{_safe_html(sre_resp.analysis_markdown)}"
+        f"{formatted_analysis}"
     )
     await bot_app.bot.send_message(
         chat_id=chat_id,

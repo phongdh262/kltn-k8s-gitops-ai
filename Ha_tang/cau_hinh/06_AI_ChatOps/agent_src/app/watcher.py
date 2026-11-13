@@ -133,7 +133,7 @@ async def run_proactive_k8s_watcher(
                     await send_sre_report(
                         bot_app=bot_app,
                         chat_id=settings.allowed_chat_id,
-                        title="⚡ [REALTIME WATCHER — K8S < 5s]",
+                        title="[REALTIME WATCHER - K8S]",
                         sre_resp=sre_resp,
                     )
         except Exception as exc:
