@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: chatops-webhook-allow-internal
+  namespace: operations
+  labels:
+    app.kubernetes.io/part-of: kltn-chatops
+    student.hcmute.edu.vn/id: "24TX810013"
+    student.hcmute.edu.vn/author: "Dinh-Hong-Phong"
+spec:
+  podSelector:
+    matchLabels:
+      app: chatops-agent
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: argocd
+      ports:
+        - protocol: TCP
+          port: 8000
+

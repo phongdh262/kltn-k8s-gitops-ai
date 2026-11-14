@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: chatops-agent
+  namespace: operations
+  labels:
+    app: chatops-agent
+    app.kubernetes.io/part-of: kltn-chatops
+    student.hcmute.edu.vn/id: "24TX810013"
+    student.hcmute.edu.vn/author: "Dinh-Hong-Phong"
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: 8000
+      protocol: TCP
+      name: webhook-http
+  selector:
+    app: chatops-agent
+

@@ -1,0 +1,27 @@
+grafana:
+  alerting:
+    contactpoints.yaml:
+      apiVersion: 1
+      contactPoints:
+        - orgId: 1
+          name: ai-chatops-webhook
+          receivers:
+            - uid: chatops_internal_rx
+              type: webhook
+              disableResolveMessage: false
+              settings:
+                url: http://chatops-agent.operations.svc.cluster.local:8000/webhooks/grafana
+                httpMethod: POST
+                authorization_scheme: Bearer
+              secureSettings:
+                authorization_credentials: kltn-internal-wg-webhook-2026
+    policies.yaml:
+      apiVersion: 1
+      policies:
+        - orgId: 1
+          receiver: ai-chatops-webhook
+          group_by: ["alertname", "namespace"]
+          group_wait: 10s
+          group_interval: 2m
+          repeat_interval: 30m
+
