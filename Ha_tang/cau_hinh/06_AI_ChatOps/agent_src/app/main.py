@@ -6,17 +6,27 @@ import uvicorn
 
 from app.bot import build_telegram_application
 from app.config import settings
+from app.security import redact_sensitive_text
 from app.watcher import run_proactive_k8s_watcher
 from app.webhooks import create_webhook_api
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)-7s | %(name)s | %(message)s",
-)
+
+class RedactingFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        # Bao gồm cả traceback và log SDK (URL Telegram chứa bot token).
+        return redact_sensitive_text(super().format(record), max_chars=None)
+
+
+logging.basicConfig(level=logging.INFO)
+for handler in logging.getLogger().handlers:
+    handler.setFormatter(
+        RedactingFormatter("%(asctime)s | %(levelname)-7s | %(name)s | %(message)s")
+    )
 logger = logging.getLogger("chatops.main")
 
 
 async def async_main() -> None:
+    settings.validate_security()
     stop_event = asyncio.Event()
     loop = asyncio.get_running_loop()
 

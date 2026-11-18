@@ -123,17 +123,17 @@ async def get_cluster_overview() -> str:
         asyncio.to_thread(_sync_list_nodes),
         get_prometheus_node_metrics(),
     )
-    lines = ["🖥 *Trạng thái Hạ tầng Cụm K3s (WireGuard Mesh):*"]
+    lines = ["**[CLUSTER OVERVIEW] WireGuard Mesh**"]
     for n in nodes:
-        icon = "🟢" if n["status"] == "Ready" else "🔴"
+        tag = "[OK]" if n["status"] == "Ready" else "[ERR]"
         m = prom_map.get(n["ip"], {})
         hw = (
             f"CPU: `{m.get('cpu', 'N/A')}` | RAM: `{m.get('ram', 'N/A')}` | Disk: `{m.get('disk', 'N/A')}`"
             if m
-            else "Metrics: `(Prometheus không phản hồi)`"
+            else "Metrics: N/A"
         )
         lines.append(
-            f"{icon} *{n['name']}* (`{n['ip']}` — _{n['workload']}_): `{n['status']}`\n   └ {hw}"
+            f"- {tag} `{n['name']}` (`{n['ip']}` | {n['workload']}) — {hw}"
         )
     return "\n".join(lines)
 
@@ -143,9 +143,10 @@ def _sync_inspect_pods(namespace: str) -> str:
     assert k8s.core_v1 is not None
     pods = k8s.core_v1.list_namespaced_pod(namespace=namespace).items
     if not pods:
-        return f"Không tìm thấy Pod nào trong namespace `{namespace}`."
+        return f"**[POD STATUS]** Không tìm thấy Pod nào trong namespace `{namespace}`."
 
-    lines = [f"📦 *Danh sách Pod tại namespace `{namespace}`:*"]
+    ready_pods = 0
+    pod_lines: list[str] = []
     for p in pods:
         name = p.metadata.name
         node = p.spec.node_name or "Pending"
@@ -154,31 +155,51 @@ def _sync_inspect_pods(namespace: str) -> str:
         ready_cnt = 0
         total_cnt = len(p.spec.containers or [])
         state_detail = phase
+        last_exit: int | None = None
 
         for cs in p.status.container_statuses or []:
             restarts += cs.restart_count or 0
             if cs.ready:
                 ready_cnt += 1
             if cs.state and cs.state.waiting and cs.state.waiting.reason:
-                state_detail = f"Waiting:{cs.state.waiting.reason}"
+                state_detail = cs.state.waiting.reason
             elif cs.state and cs.state.terminated and cs.state.terminated.reason:
-                state_detail = f"Terminated:{cs.state.terminated.reason}"
+                state_detail = cs.state.terminated.reason
             elif (
                 cs.last_state
                 and cs.last_state.terminated
-                and cs.last_state.terminated.reason
                 and restarts > 0
             ):
-                term = cs.last_state.terminated
-                state_detail = f"{phase} (LastCrash: {term.reason}, ExitCode={term.exit_code})"
+                last_exit = cs.last_state.terminated.exit_code
 
-        icon = "🟢" if (phase == "Running" and ready_cnt == total_cnt) else "⚠️"
-        lines.append(
-            f"{icon} `{name}`\n"
-            f"   └ Node: `{node}` | Ready: `{ready_cnt}/{total_cnt}` | "
-            f"State: `{state_detail}` | Restarts: `{restarts}`"
+        is_ok = phase == "Running" and ready_cnt == total_cnt
+        if is_ok:
+            ready_pods += 1
+        tag = "[OK]" if is_ok else "[WARN]"
+        meta = f"Restarts: {restarts}" + (f", LastExit: {last_exit}" if last_exit is not None else "")
+        pod_lines.append(
+            f"- {tag} `{name}` | `{node}` | `{ready_cnt}/{total_cnt} {state_detail}` ({meta})"
         )
-    return "\n".join(lines)
+
+    other_errors: list[str] = []
+    for p in k8s.core_v1.list_pod_for_all_namespaces().items:
+        p_ns = p.metadata.namespace
+        if p_ns == namespace:
+            continue
+        p_phase = p.status.phase or "Unknown"
+        if p_phase == "Succeeded":
+            continue
+        cs_list = p.status.container_statuses or []
+        if p_phase != "Running" or not cs_list or not all(cs.ready for cs in cs_list):
+            other_errors.append(f"`{p_ns}/{p.metadata.name}` ({p_phase})")
+
+    summary_line = (
+        f"- **Toàn cụm:** {len(other_errors)} Pod bất thường ở namespace khác: {', '.join(other_errors[:5])}"
+        if other_errors
+        else "- **Toàn cụm:** 0 Pod lỗi ở các namespace khác."
+    )
+    header = f"**[POD STATUS]** Namespace: `{namespace}` ({ready_pods}/{len(pods)} Ready)"
+    return "\n".join([header, *pod_lines, summary_line])
 
 
 async def inspect_app_pods(namespace: str | None = None) -> str:
@@ -254,7 +275,7 @@ async def query_sli_metrics() -> str:
         query_prometheus('kube_pod_status_ready{namespace="database",condition="true"}'),
     )
 
-    lines = [f"📊 *Chỉ số SLI/Telemetry (`{ns}` & `database`):*"]
+    lines = [f"**[SLI METRICS]** `{ns}` & `database`"]
     cpu_map = {i["metric"].get("pod", "?"): float(i["value"][1]) for i in pod_cpu}
     mem_map = {i["metric"].get("pod", "?"): float(i["value"][1]) for i in pod_mem}
     rst_map = {i["metric"].get("pod", "?"): float(i["value"][1]) for i in restarts_15m}
@@ -263,16 +284,16 @@ async def query_sli_metrics() -> str:
     if all_pods:
         for pod in all_pods:
             lines.append(
-                f"• `{pod}`: CPU `{cpu_map.get(pod, 0.0):.1f}m` | "
+                f"- `{pod}`: CPU `{cpu_map.get(pod, 0.0):.1f}m` | "
                 f"RAM `{mem_map.get(pod, 0.0):.1f} MiB` | "
                 f"Restarts(15m): `{int(round(rst_map.get(pod, 0.0)))}`"
             )
     else:
-        lines.append("• Chưa thu thập được metrics container từ Prometheus.")
+        lines.append("- Chưa thu thập được metrics container từ Prometheus.")
 
     if db_ready:
         is_up = any(float(i["value"][1]) >= 1.0 for i in db_ready)
-        lines.append(f"• Database PostgreSQL (`k3s-master`): `{'Ready 🟢' if is_up else 'NotReady 🔴'}`")
+        lines.append(f"- PostgreSQL (`k3s-master`): `{'Ready' if is_up else 'NotReady'}`")
 
     return "\n".join(lines)
 
@@ -292,14 +313,14 @@ def _sync_get_argocd_status(app_name: str) -> str:
         sync_status = status.get("sync", {}).get("status", "Unknown")
         revision = status.get("sync", {}).get("revision", "N/A")[:7]
         health_status = status.get("health", {}).get("status", "Unknown")
-        icon = "🟢" if (sync_status == "Synced" and health_status == "Healthy") else "🟠"
+        tag = "[OK]" if (sync_status == "Synced" and health_status == "Healthy") else "[WARN]"
         return (
-            f"{icon} *Argo CD Application `{app_name}`:*\n"
-            f"• Sync Status: `{sync_status}` (Revision: `{revision}`)\n"
-            f"• Health Status: `{health_status}`"
+            f"**[GITOPS STATUS]** {tag} `{app_name}`\n"
+            f"- Sync: `{sync_status}` (Revision: `{revision}`)\n"
+            f"- Health: `{health_status}`"
         )
     except ApiException as exc:
-        return f"⚠️ Không đọc được trạng thái Argo CD `{app_name}`: `{exc.reason}`"
+        return f"**[GITOPS STATUS]** [ERR] Không đọc được trạng thái Argo CD `{app_name}`: `{exc.reason}`"
 
 
 async def get_argocd_app_status(app_name: str | None = None) -> str:

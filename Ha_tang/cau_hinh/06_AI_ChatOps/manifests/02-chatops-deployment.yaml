@@ -73,7 +73,6 @@ spec:
                 secretKeyRef:
                   name: chatops-secrets
                   key: ALLOWED_USER_IDS
-                  optional: true
             - name: GEMINI_API_KEY
               valueFrom:
                 secretKeyRef:
@@ -98,7 +97,6 @@ spec:
                 secretKeyRef:
                   name: chatops-secrets
                   key: WEBHOOK_SECRET
-                  optional: true
           resources:
             requests:
               cpu: 50m

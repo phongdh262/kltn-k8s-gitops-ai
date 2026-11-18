@@ -39,10 +39,13 @@ def check_telegram_authorization(chat_id: int | str, user_id: int | str | None) 
     chat_str = str(chat_id)
     user_str = str(user_id) if user_id is not None else ""
 
-    if settings.allowed_chat_id and chat_str != settings.allowed_chat_id:
+    if not settings.allowed_chat_id or not settings.allowed_user_ids:
+        return False, "Chưa cấu hình đầy đủ danh sách chat và người dùng được phép."
+
+    if chat_str != settings.allowed_chat_id:
         return False, f"Chat ID `{chat_str}` không nằm trong danh sách cho phép."
 
-    if settings.allowed_user_ids and user_str not in settings.allowed_user_ids:
+    if user_str not in settings.allowed_user_ids:
         return False, f"User ID `{user_str}` không có quyền quản trị cụm K3s."
 
     return True, "OK"
@@ -62,25 +65,56 @@ def evaluate_deterministic_guardrail(user_message: str) -> tuple[bool, str]:
 # ==============================================================================
 SECRET_REDACTION_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (
-        re.compile(r"(?i)(password|passwd|pwd|secret|token|api[_-]?key)\s*[:=]\s*['\"]?([^\s'\";,]+)"),
-        r"\1=[REDACTED]",
+        re.compile(
+            r"-----BEGIN (?:[A-Z0-9]+ )?PRIVATE KEY-----.*?"
+            r"-----END (?:[A-Z0-9]+ )?PRIVATE KEY-----", re.DOTALL
+        ),
+        "[REDACTED_PRIVATE_KEY]",
     ),
     (re.compile(r"(?i)Bearer\s+[A-Za-z0-9\-._~+/]+=*"), "Bearer [REDACTED]"),
     (re.compile(r"(?i)postgresql://([^:]+):([^@]+)@"), r"postgresql://\1:[REDACTED]@"),
     (re.compile(r"\b\d{8,10}:[A-Za-z0-9_-]{30,}\b"), "[REDACTED_TELEGRAM_TOKEN]"),
     (re.compile(r"\bgh[pousr]_[A-Za-z0-9_]{30,}\b"), "[REDACTED_GITHUB_TOKEN]"),
     (re.compile(r"\bAIza[0-9A-Za-z\-_]{35}\b"), "[REDACTED_GEMINI_KEY]"),
+    (re.compile(r"\bgsk_[A-Za-z0-9_-]{20,}\b"), "[REDACTED_GROQ_KEY]"),
+    (re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}\b"), "[REDACTED_GITHUB_TOKEN]"),
+    (re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"), "[REDACTED_EMAIL]"),
 ]
 
+_CREDENTIAL_ASSIGNMENT = re.compile(
+    r'''(?ix)
+    (?<![\w])(["']?(?:[\w.-]*[_-])?
+    (?:password|passwd|pwd|secret|token|api[_-]?key|private[_-]?key|adminPassword|authorization_credentials)
+    ["']?\s*[:=]\s*)
+    ("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\[REDACTED(?:_[A-Z_]+)?\]|[^\s,;}\]]+)
+    '''
+)
 
-def redact_sensitive_text(raw_text: str, max_chars: int = 6000) -> str:
-    """Lọc sạch mật khẩu, token trong log trước khi gửi lên Cloud LLM."""
+
+def redact_sensitive_text(raw_text: str, max_chars: int | None = 6000) -> str:
+    """Che các dạng credential/PII được hỗ trợ trước khi cắt ngắn dữ liệu."""
     if not raw_text:
         return ""
     cleaned = raw_text
+    # Che cả khóa đã cấu hình, kể cả khi nhà cung cấp thay đổi định dạng token.
+    for secret in (
+        settings.telegram_bot_token,
+        settings.gemini_api_key,
+        settings.groq_api_key,
+        settings.webhook_secret,
+    ):
+        if secret:
+            cleaned = cleaned.replace(secret, "[REDACTED]")
     for regex, replacement in SECRET_REDACTION_PATTERNS:
         cleaned = regex.sub(replacement, cleaned)
-    if len(cleaned) > max_chars:
+
+    def redact_assignment(match: re.Match[str]) -> str:
+        value = match.group(2)
+        quote = value[0] if value[0] in "\"'" else ""
+        return f"{match.group(1)}{quote}[REDACTED]{quote}"
+
+    cleaned = _CREDENTIAL_ASSIGNMENT.sub(redact_assignment, cleaned)
+    if max_chars is not None and len(cleaned) > max_chars:
         cleaned = cleaned[-max_chars:]
     return cleaned
 
@@ -121,11 +155,11 @@ class SecurityAuditStore:
         self._audit_log.appendleft(
             AuditEntry(
                 timestamp=now_str,
-                actor=actor,
+                actor=redact_sensitive_text(actor, max_chars=200),
                 event_type=event_type,
-                summary=summary,
+                summary=redact_sensitive_text(summary, max_chars=1000),
                 status=status,
-                detail=detail,
+                detail=redact_sensitive_text(detail, max_chars=2000),
             )
         )
 

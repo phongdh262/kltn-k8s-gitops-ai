@@ -10,6 +10,7 @@ from telegram.ext import Application
 from app.bot import send_sre_report
 from app.config import settings
 from app.llm_engine import run_sre_reasoning
+from app.security import redact_sensitive_text
 from app.tools import collect_full_diagnostic_bundle
 
 logger = logging.getLogger(__name__)
@@ -26,7 +27,7 @@ def should_suppress_duplicate(fingerprint: str, cooldown_sec: float = 90.0) -> b
 
     last_ts = _ALERT_DEDUP_CACHE.get(fingerprint, 0.0)
     if now - last_ts < cooldown_sec:
-        logger.info("Suppressed duplicate event fingerprint=%s", fingerprint)
+        logger.info("Suppressed duplicate event")
         return True
 
     _ALERT_DEDUP_CACHE[fingerprint] = now
@@ -38,7 +39,7 @@ def _verify_webhook_secret(
     authorization: str | None,
 ) -> None:
     if not settings.webhook_secret:
-        return
+        raise HTTPException(status_code=503, detail="Webhook authentication is not configured")
 
     token = (x_webhook_secret or "").strip()
     if not token and authorization:
@@ -46,7 +47,9 @@ def _verify_webhook_secret(
         if len(parts) == 2 and parts[0].lower() == "bearer":
             token = parts[1].strip()
 
-    if not token or not hmac.compare_digest(token, settings.webhook_secret):
+    if not token or not hmac.compare_digest(
+        token.encode("utf-8"), settings.webhook_secret.encode("utf-8")
+    ):
         raise HTTPException(status_code=401, detail="Invalid webhook secret")
 
 
@@ -62,10 +65,12 @@ async def _enrich_and_notify(
     try:
         telemetry = await collect_full_diagnostic_bundle()
         sre_resp = await run_sre_reasoning(
-            telemetry_bundle=telemetry,
+            telemetry_bundle=(
+                f"{telemetry}\n\n=== [UNTRUSTED WEBHOOK EVENT] ===\n"
+                f"{redact_sensitive_text(event_summary, max_chars=3000)}"
+            ),
             trigger_prompt=(
                 f"Nguồn cảnh báo chủ động: {source_title}\n"
-                f"Chi tiết sự kiện:\n{event_summary}\n\n"
                 f"Yêu cầu phân tích: {domain_instruction}"
             ),
         )
@@ -75,8 +80,8 @@ async def _enrich_and_notify(
             title=source_title,
             sre_resp=sre_resp,
         )
-    except Exception:
-        logger.exception("Error while processing proactive webhook alert")
+    except Exception as exc:
+        logger.error("Error while processing proactive webhook alert (%s)", type(exc).__name__)
 
 
 def create_webhook_api(bot_app: Application) -> FastAPI:
@@ -120,13 +125,17 @@ def create_webhook_api(bot_app: Application) -> FastAPI:
         if should_suppress_duplicate(fingerprint, cooldown_sec=90.0):
             return {"accepted": "true", "deduplicated": "true"}
 
-        summary_text = "\n".join(summaries) or json.dumps(payload, ensure_ascii=False)[:800]
-        logger.info("Accepted Grafana Metric Alert (%s): %s", state, summary_text)
+        summary_text = redact_sensitive_text(
+            "\n".join(summaries) or json.dumps(payload, ensure_ascii=False), max_chars=3000
+        )
+        logger.info(
+            "Accepted Grafana Metric Alert (%s): %s", redact_sensitive_text(state), summary_text
+        )
 
         background_tasks.add_task(
             _enrich_and_notify,
             bot_app,
-            f"[METRIC ALERT - GRAFANA] ({state})",
+            redact_sensitive_text(f"[METRIC ALERT - GRAFANA] ({state})"),
             summary_text,
             (
                 "Đây là cảnh báo vượt ngưỡng chỉ số tài nguyên/SLI từ Grafana Unified Alerting. "
@@ -162,12 +171,13 @@ def create_webhook_api(bot_app: Application) -> FastAPI:
             f"- Health Status: {health_status}\n"
             f"- Git Revision: {revision or 'N/A'}"
         )
+        event_text = redact_sensitive_text(event_text, max_chars=3000)
         logger.info("Accepted Argo CD GitOps Event: %s", event_text.replace("\n", " | "))
 
         background_tasks.add_task(
             _enrich_and_notify,
             bot_app,
-            f"[GITOPS EVENT - ARGO CD] ({sync_status})",
+            redact_sensitive_text(f"[GITOPS EVENT - ARGO CD] ({sync_status})"),
             event_text,
             (
                 "Đây là sự kiện trạng thái đồng bộ cấu hình từ Argo CD Notifications. "

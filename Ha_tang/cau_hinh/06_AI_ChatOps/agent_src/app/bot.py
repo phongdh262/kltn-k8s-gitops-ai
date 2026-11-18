@@ -105,28 +105,32 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     if not await _guard_update(update):
         return
     assert update.message is not None
-    await update.message.reply_text(await get_cluster_overview())
+    text = _markdown_to_telegram_html(await get_cluster_overview())
+    await update.message.reply_text(text[:4000], parse_mode=ParseMode.HTML)
 
 
 async def cmd_pods(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await _guard_update(update):
         return
     assert update.message is not None
-    await update.message.reply_text(await inspect_app_pods())
+    text = _markdown_to_telegram_html(await inspect_app_pods())
+    await update.message.reply_text(text[:4000], parse_mode=ParseMode.HTML)
 
 
 async def cmd_metrics(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await _guard_update(update):
         return
     assert update.message is not None
-    await update.message.reply_text(await query_sli_metrics())
+    text = _markdown_to_telegram_html(await query_sli_metrics())
+    await update.message.reply_text(text[:4000], parse_mode=ParseMode.HTML)
 
 
 async def cmd_gitops(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await _guard_update(update):
         return
     assert update.message is not None
-    await update.message.reply_text(await get_argocd_app_status())
+    text = _markdown_to_telegram_html(await get_argocd_app_status())
+    await update.message.reply_text(text[:4000], parse_mode=ParseMode.HTML)
 
 
 async def cmd_audit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -134,7 +138,8 @@ async def cmd_audit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     assert update.message is not None
     audit_text = audit_store.format_recent_audits()
-    await update.message.reply_text(f"📜 *Nhật ký Kiểm duyệt Bảo mật:*\n\n{audit_text}")
+    text = _markdown_to_telegram_html(f"**[AUDIT LOG]**\n\n{audit_text}")
+    await update.message.reply_text(text[:4000], parse_mode=ParseMode.HTML)
 
 
 async def handle_natural_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -164,7 +169,7 @@ async def handle_natural_message(update: Update, context: ContextTypes.DEFAULT_T
         await update.message.reply_text(
             f"🛡️ <b>[Zero-Trust Policy Gate — Đã chặn tự động]</b>\n"
             f"• Lý do: {_safe_html(static_reason)}\n"
-            f"• Sự kiện này đã được ghi nhận vào `/audit`.",
+            f"• Sự kiện này đã được ghi nhận vào <code>/audit</code>.",
             parse_mode=ParseMode.HTML,
         )
         return
@@ -189,13 +194,16 @@ async def handle_natural_message(update: Update, context: ContextTypes.DEFAULT_T
         return
 
     if decision.intent == "CLUSTER_OVERVIEW":
-        await status_msg.edit_text(await get_cluster_overview())
+        text = _markdown_to_telegram_html(await get_cluster_overview())
+        await status_msg.edit_text(text[:4000], parse_mode=ParseMode.HTML)
         return
     if decision.intent == "APP_PODS_STATUS":
-        await status_msg.edit_text(await inspect_app_pods())
+        text = _markdown_to_telegram_html(await inspect_app_pods())
+        await status_msg.edit_text(text[:4000], parse_mode=ParseMode.HTML)
         return
     if decision.intent == "ARGOCD_STATUS":
-        await status_msg.edit_text(await get_argocd_app_status())
+        text = _markdown_to_telegram_html(await get_argocd_app_status())
+        await status_msg.edit_text(text[:4000], parse_mode=ParseMode.HTML)
         return
 
     await status_msg.edit_text(
@@ -210,7 +218,7 @@ async def handle_natural_message(update: Update, context: ContextTypes.DEFAULT_T
     await send_sre_report(
         bot_app=context.application,
         chat_id=update.effective_chat.id,
-        title="🧠 Kết quả Phân tích & Chẩn đoán Sự cố",
+        title="Kết quả Phân tích & Chẩn đoán Sự cố",
         sre_resp=sre_resp,
     )
 
