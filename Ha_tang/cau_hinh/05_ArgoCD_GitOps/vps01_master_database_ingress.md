@@ -12,10 +12,17 @@
 Cơ sở dữ liệu PostgreSQL chạy trên `k3s-master` và sử dụng `local-path` PersistentVolume của K3s:
 
 ```bash
-# 1. Tạo file postgres-deployment.yaml
-vi postgres-deployment.yaml
+# 1. Khởi tạo namespace và tạo Secret postgres-secret từ file cấu hình cục bộ
+kubectl create namespace database --dry-run=client -o yaml | kubectl apply -f -
+if [ ! -e postgres.secret.local.yaml ]; then
+  install -m 600 Ha_tang/cau_hinh/05_ArgoCD_GitOps/configs/postgres-secret-template.yaml postgres.secret.local.yaml
+fi
+chmod 600 postgres.secret.local.yaml
+vi postgres.secret.local.yaml
+kubectl apply -f postgres.secret.local.yaml
 
-# 2. Triển khai manifest PostgreSQL (Namespace, Secret, PVC 5Gi, Deployment, Service)
+# 2. Triển khai manifest PostgreSQL (PVC 5Gi, Deployment, Service)
+vi postgres-deployment.yaml
 kubectl apply -f postgres-deployment.yaml
 
 # 3. Kiểm tra trạng thái PersistentVolumeClaim và Pod trong namespace database
@@ -122,7 +129,7 @@ kubectl get certificate -n monitoring
 2. **Grafana Dashboard**: `https://grafana.phongdinh.info.vn`
    - Giao diện có ổ khóa xanh HTTPS bảo mật.
    - Tài khoản: `admin`
-   - Mật khẩu: `Mat-khau!`
+   - Mật khẩu: Lấy từ Secret `grafana-admin-secret` tại namespace `monitoring`
 
 ![Grafana Dashboard](images/grafana-dashboard.png)
 

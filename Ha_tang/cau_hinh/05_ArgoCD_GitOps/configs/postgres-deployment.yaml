@@ -4,17 +4,6 @@ metadata:
   name: database
 ---
 apiVersion: v1
-kind: Secret
-metadata:
-  name: postgres-secret
-  namespace: database
-type: Opaque
-stringData:
-  POSTGRES_DB: "appdb"
-  POSTGRES_USER: "appuser"
-  POSTGRES_PASSWORD: "SecureAppPassword2026!"
----
-apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: postgres-pvc

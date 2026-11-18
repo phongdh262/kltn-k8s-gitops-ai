@@ -31,7 +31,11 @@ grafana:
   # Pod Grafana chạy trên Worker 2 (VPS 03)
   nodeSelector:
     workload: monitoring
-  adminPassword: "AdminGrafana2026!"
+  # Secret được tạo riêng tại namespace monitoring, không lưu mật khẩu trong Git.
+  admin:
+    existingSecret: grafana-admin-secret
+    userKey: admin-user
+    passwordKey: admin-password
   resources:
     requests:
       cpu: 100m

@@ -34,10 +34,18 @@ echo 'export KUBECONFIG=/etc/rancher/k3s/k3s.yaml' >> ~/.bashrc
 
 ## 2. Triển khai Kube-Prometheus-Stack bằng Helm
 
-
 ```bash
-vi monitoring-values.yaml
+# 1. Khởi tạo namespace và tạo Secret grafana-admin-secret
+kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+if [ ! -e grafana.secret.local.yaml ]; then
+  install -m 600 Ha_tang/cau_hinh/05_ArgoCD_GitOps/configs/grafana-secret-template.yaml grafana.secret.local.yaml
+fi
+chmod 600 grafana.secret.local.yaml
+vi grafana.secret.local.yaml
+kubectl apply -f grafana.secret.local.yaml
 
+# 2. Cài đặt kube-prometheus-stack
+vi monitoring-values.yaml
 helm install monitoring prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
   --create-namespace \
@@ -77,7 +85,7 @@ kubectl get pods -n monitoring -o wide
 
 Truy cập vào `https://grafana.phongdinh.info.vn`
 1. **Tài khoản**: `admin`
-2. **Mật khẩu**: `Mat-khau!`
+2. **Mật khẩu**: Lấy từ Secret `grafana-admin-secret`
 3. **Dashboards**:
    - **Node Exporter / Nodes**: Kiểm tra mức tiêu hao CPU, RAM, Network I/O của từng VPS trong 3 máy.
    - **Kubernetes / Compute Resources / Workloads**: Theo dõi mức tiêu thụ tài nguyên của Pod ứng dụng khi chạy tải với `k6`.
