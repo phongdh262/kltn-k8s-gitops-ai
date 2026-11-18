@@ -1,6 +1,6 @@
 # VPS 01 (k3s-master)
 
-- **IP**: 103.110.86.106
+- **IP**: 103.110.85.106
 - **Hostname:** `k3s-master`
 - **Vai trò:** K3s Server, Ingress Traefik, Database
 

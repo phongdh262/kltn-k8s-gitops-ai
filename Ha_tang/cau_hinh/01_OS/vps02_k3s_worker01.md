@@ -1,6 +1,6 @@
 # VPS 02 (k3s-worker-01)
 
-- **IP**: 103.110.86.111
+- **IP**: 103.110.85.111
 - **Hostname:** `k3s-worker-01`
 - **Vai trò:** K3s Worker 1, Argo CD, AI ChatOps
 

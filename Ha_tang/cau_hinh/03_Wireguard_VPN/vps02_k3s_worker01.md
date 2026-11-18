@@ -1,6 +1,6 @@
 # CẤU HÌNH, KẾT NỐI WIREGUARD VPN CHO VPS 02 (k3s-worker-01)
 
-- **IP**: 103.110.86.111
+- **IP**: 103.110.85.111
 - **Hostname:** `k3s-worker-01`
 - **IP WireGuard (`wg0`):** `10.10.0.2/24`
 - **Port UDP lắng nghe:** `51820`

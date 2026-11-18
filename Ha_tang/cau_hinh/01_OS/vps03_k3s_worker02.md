@@ -1,6 +1,6 @@
 # VPS 03 (k3s-worker-02)
 
-- **IP**: 103.110.86.145
+- **IP**: 103.110.85.145
 - **Hostname:** `k3s-worker-02`
 - **Vai trò:** K3s Worker 2, Prometheus, Grafana
 

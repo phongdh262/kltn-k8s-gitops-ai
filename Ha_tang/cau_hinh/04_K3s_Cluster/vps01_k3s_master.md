@@ -17,7 +17,7 @@ curl -sfL https://get.k3s.io | sh -s - server \
   --flannel-iface=wg0 \
   --tls-san=10.10.0.1 \
   --tls-san=103.110.85.106 \
-  --write-kubeconfig-mode=644
+  --write-kubeconfig-mode=600
 ```
 
 ### Tham số cấu hình:
@@ -26,7 +26,13 @@ curl -sfL https://get.k3s.io | sh -s - server \
 - `--node-external-ip=103.110.85.106`: IP Public của VPS 01 cho Ingress và định tuyến ngoài.
 - `--flannel-iface=wg0`: Flannel chuyển tiếp các gói tin giữa các Pod qua giao diện mã hóa `wg0`.
 - `--tls-san`: Bổ sung IP WireGuard và IP Public vào chứng chỉ SSL của K3s API Server.
-- `--write-kubeconfig-mode=644`: Cho phép đọc file `/etc/rancher/k3s/k3s.yaml`.
+- `--write-kubeconfig-mode=600`: Thiết lập quyền `600` (`root:root`) cho file quản trị `/etc/rancher/k3s/k3s.yaml`.
+
+```bash
+sudo chown root:root /etc/rancher/k3s/k3s.yaml
+sudo chmod 600 /etc/rancher/k3s/k3s.yaml
+sudo stat -c '%a %U:%G' /etc/rancher/k3s/k3s.yaml
+```
 
 ### Thêm 'cni+,flannel+' vào file cấu hình /etc/csf/csf.conf
 ```bash
