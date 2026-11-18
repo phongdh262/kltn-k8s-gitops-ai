@@ -87,14 +87,14 @@ async def _enrich_and_notify(
 def create_webhook_api(bot_app: Application) -> FastAPI:
     api = FastAPI(
         title="ChatOps Internal Webhook API",
-        version="1.1.0",
+        version="1.2.0",
         docs_url=None,
         redoc_url=None,
     )
 
     @api.get("/healthz")
     async def healthz() -> dict[str, str]:
-        return {"status": "ok", "service": "kltn-chatops-agent", "version": "1.1.0"}
+        return {"status": "ok", "service": "kltn-chatops-agent", "version": "1.2.0"}
 
     @api.post("/webhooks/grafana", status_code=202)
     async def grafana_webhook(

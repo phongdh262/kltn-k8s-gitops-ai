@@ -1,0 +1,140 @@
+name: CI/CD — AI ChatOps SRE Agent (6-Stage DevSecOps Pipeline)
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "Ha_tang/cau_hinh/06_AI_ChatOps/**"
+      - "Ha_tang/cau_hinh/07_EventDriven_Alerting_NetPol/manifests/**"
+      - ".github/workflows/build-chatops-agent.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "Ha_tang/cau_hinh/06_AI_ChatOps/**"
+      - "Ha_tang/cau_hinh/07_EventDriven_Alerting_NetPol/manifests/**"
+      - ".github/workflows/build-chatops-agent.yml"
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: phongdh262/kltn-chatops-agent
+  AGENT_DIR: Ha_tang/cau_hinh/06_AI_ChatOps/agent_src
+  MANIFEST_DIR: Ha_tang/cau_hinh/06_AI_ChatOps/manifests
+  NETPOL_MANIFEST_DIR: Ha_tang/cau_hinh/07_EventDriven_Alerting_NetPol/manifests
+
+jobs:
+  # ============================================================================
+  # Stage 1–5: Quality, Security, Coverage & GitOps Manifest Gate
+  # ============================================================================
+  quality-and-security-gate:
+    name: "Stages 1-5: Lint, Pytest Coverage, SAST/SCA & YAML Gate"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Astral uv & Python 3.12
+        uses: astral-sh/setup-uv@v4
+        with:
+          python-version: "3.12"
+
+      - name: Install Runtime & Dev Dependencies
+        working-directory: ${{ env.AGENT_DIR }}
+        run: |
+          uv venv .venv
+          uv pip install --python .venv/bin/python -e ".[dev]" pyyaml
+
+      # Stage 1: Static Code Analysis & Formatting Check
+      - name: "[Stage 1/6] Static Lint Check (Ruff)"
+        working-directory: ${{ env.AGENT_DIR }}
+        run: .venv/bin/ruff check app tests
+
+      # Stage 2: Automated Unit/Webhook Tests & Coverage Threshold (>= 75%)
+      - name: "[Stage 2/6] Unit & Security Guardrail Tests (Pytest + Coverage)"
+        working-directory: ${{ env.AGENT_DIR }}
+        run: |
+          .venv/bin/pytest -v \
+            --cov=app.config \
+            --cov=app.security \
+            --cov=app.webhooks \
+            --cov-report=term-missing \
+            --cov-fail-under=75
+
+      # Stage 3: Software Composition Analysis (CVE Scan)
+      - name: "[Stage 3/6] Dependency Vulnerability Scan (pip-audit)"
+        working-directory: ${{ env.AGENT_DIR }}
+        run: .venv/bin/pip-audit --desc on
+
+      # Stage 4: Zero-Secret Leak Scan
+      - name: "[Stage 4/6] Secret Leak Detection (Gitleaks)"
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Stage 5: Kubernetes GitOps Manifest Validation
+      - name: "[Stage 5/6] Validate Kubernetes & RBAC YAML Manifests"
+        run: |
+          ${{ env.AGENT_DIR }}/.venv/bin/python -c "
+          import glob, yaml
+          dirs = [
+              '${{ env.MANIFEST_DIR }}',
+              '${{ env.NETPOL_MANIFEST_DIR }}',
+          ]
+          files = []
+          for d in dirs:
+              found = sorted(glob.glob(f'{d}/*.yaml'))
+              assert found, f'No Kubernetes manifests found in {d}!'
+              files.extend(found)
+          for path in files:
+              with open(path, encoding='utf-8') as f:
+                  docs = [d for d in yaml.safe_load_all(f) if d]
+              for d in docs:
+                  assert 'apiVersion' in d and 'kind' in d, f'Invalid K8s manifest: {path}'
+              print(f'OK: {path} ({len(docs)} objects)')
+          "
+
+  # ============================================================================
+  # Stage 6: Multi-Stage Container Build & Publish to GHCR (GitOps Ready)
+  # ============================================================================
+  build-and-publish-image:
+    name: "Stage 6/6: Build & Push Non-Root Image to GHCR"
+    needs: [quality-and-security-gate]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry (GHCR)
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=v1.2.0,enable={{is_default_branch}}
+            type=sha,prefix=sha-
+
+      - name: "[Stage 6/6] Build & Push Multi-Stage uv Image"
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.AGENT_DIR }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

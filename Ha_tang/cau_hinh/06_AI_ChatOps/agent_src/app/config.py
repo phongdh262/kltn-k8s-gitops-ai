@@ -54,6 +54,23 @@ class Settings:
         )
     )
 
+    # GitOps GitHub Integration (Deterministic YAML Mutation)
+    github_token: str = field(
+        default_factory=lambda: os.getenv("GITHUB_TOKEN", "").strip(), repr=False
+    )
+    github_repo: str = field(
+        default_factory=lambda: os.getenv("GITHUB_REPO", "phongdh262/kltn-k8s-gitops-ai").strip()
+    )
+    github_branch: str = field(
+        default_factory=lambda: os.getenv("GITHUB_BRANCH", "main").strip()
+    )
+    gitops_manifest_path: str = field(
+        default_factory=lambda: os.getenv(
+            "GITOPS_MANIFEST_PATH",
+            "Ha_tang/cau_hinh/05_ArgoCD_GitOps/manifests/web-app.yaml",
+        ).strip()
+    )
+
     # Internal Webhook & Proactive K8s Watcher Settings
     webhook_port: int = field(default_factory=lambda: int(os.getenv("PORT", "8000")))
     webhook_secret: str = field(
@@ -61,6 +78,9 @@ class Settings:
     )
     enable_k8s_watcher: bool = field(
         default_factory=lambda: os.getenv("ENABLE_K8S_WATCHER", "true").lower() == "true"
+    )
+    action_ttl_seconds: int = field(
+        default_factory=lambda: int(os.getenv("ACTION_TTL_SECONDS", "300"))
     )
 
     def validate_security(self) -> None:

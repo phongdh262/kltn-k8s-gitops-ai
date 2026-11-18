@@ -1,7 +1,10 @@
 import re
+import time
+import uuid
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from typing import Any
 
 from app.config import settings
 
@@ -102,6 +105,7 @@ def redact_sensitive_text(raw_text: str, max_chars: int | None = 6000) -> str:
         settings.gemini_api_key,
         settings.groq_api_key,
         settings.webhook_secret,
+        settings.github_token,
     ):
         if secret:
             cleaned = cleaned.replace(secret, "[REDACTED]")
@@ -178,3 +182,114 @@ class SecurityAuditStore:
 
 
 audit_store = SecurityAuditStore()
+
+
+# ==============================================================================
+# Lớp 3: Human-in-the-Loop (HITL) Pending Action Store + Governance Audit
+# ==============================================================================
+MIN_REPLICAS = 1
+MAX_REPLICAS = 5
+
+
+def validate_replica_bounds(replicas: int) -> int:
+    """Ép giới hạn cứng số lượng replica trong [1..5] ở tầng code."""
+    value = int(replicas)
+    if not MIN_REPLICAS <= value <= MAX_REPLICAS:
+        raise ValueError(
+            f"Số lượng replicas phải nằm trong khoảng [{MIN_REPLICAS}..{MAX_REPLICAS}], nhận được {value}."
+        )
+    return value
+
+
+@dataclass
+class PendingAction:
+    action_id: str
+    action_type: str  # "rollout_restart" | "argocd_sync" | "gitops_scale" | "gitops_image"
+    summary: str
+    params: dict[str, Any]
+    created_at: float = field(default_factory=time.time)
+
+
+class ActionGovernanceStore:
+    """Quản lý đề xuất HITL (TTL, single-use, xác thực lại user_id, giới hạn replica 1..5)."""
+
+    def __init__(self, ttl_seconds: int = 300, max_audit_entries: int = 30) -> None:
+        self._ttl = ttl_seconds
+        self._pending: dict[str, PendingAction] = {}
+        self._audit_log: deque[AuditEntry] = deque(maxlen=max_audit_entries)
+
+    def _is_user_authorized(self, user_id: int | str | None) -> bool:
+        if not settings.allowed_user_ids or user_id is None:
+            return False
+        return str(user_id) in settings.allowed_user_ids
+
+    def create_proposal(
+        self, action_type: str, summary: str, params: dict[str, Any]
+    ) -> PendingAction:
+        self._cleanup_expired()
+        if action_type == "gitops_scale" or "replicas" in params:
+            if "replicas" not in params or params["replicas"] is None:
+                raise ValueError("Thiếu tham số replicas cho thao tác gitops_scale.")
+            params = {**params, "replicas": validate_replica_bounds(params["replicas"])}
+
+        action_id = uuid.uuid4().hex[:10]
+        proposal = PendingAction(
+            action_id=action_id,
+            action_type=action_type,
+            summary=summary,
+            params=params,
+        )
+        self._pending[action_id] = proposal
+        return proposal
+
+    def pop_valid_proposal(
+        self, action_id: str, user_id: int | str | None = None
+    ) -> PendingAction | None:
+        self._cleanup_expired()
+        if user_id is not None and not self._is_user_authorized(user_id):
+            return None
+        return self._pending.pop(action_id, None)
+
+    def discard_proposal(
+        self, action_id: str, user_id: int | str | None = None
+    ) -> PendingAction | None:
+        if user_id is not None and not self._is_user_authorized(user_id):
+            return None
+        return self._pending.pop(action_id, None)
+
+    def record_audit(
+        self, actor: str, action_type: str, summary: str, status: str, detail: str = ""
+    ) -> None:
+        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        self._audit_log.appendleft(
+            AuditEntry(
+                timestamp=now_str,
+                actor=redact_sensitive_text(actor, max_chars=200),
+                event_type=action_type,
+                summary=redact_sensitive_text(summary, max_chars=1000),
+                status=status,
+                detail=redact_sensitive_text(detail, max_chars=2000),
+            )
+        )
+
+    def format_recent_audits(self, limit: int = 8) -> str:
+        if not self._audit_log:
+            return "Chưa có thao tác thay đổi trạng thái nào được ghi nhận trong phiên hiện tại."
+        lines = []
+        for idx, item in enumerate(list(self._audit_log)[:limit], start=1):
+            lines.append(
+                f"{idx}. [{item.timestamp}] *{item.status}* — `{item.event_type}`\n"
+                f"   • Người duyệt: `{item.actor}`\n"
+                f"   • Nội dung: {item.summary}"
+                + (f"\n   • Kết quả: {item.detail}" if item.detail else "")
+            )
+        return "\n".join(lines)
+
+    def _cleanup_expired(self) -> None:
+        now = time.time()
+        expired = [k for k, v in self._pending.items() if now - v.created_at > self._ttl]
+        for k in expired:
+            self._pending.pop(k, None)
+
+
+governance_store = ActionGovernanceStore(ttl_seconds=settings.action_ttl_seconds)

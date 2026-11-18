@@ -60,7 +60,7 @@ async def async_main() -> None:
     )
 
     logger.info(
-        "AI ChatOps SRE Agent v1.1 is LIVE (Webhook Port=%d, TargetNamespace=%s).",
+        "AI ChatOps SRE Agent v1.2 is LIVE (Webhook Port=%d, TargetNamespace=%s).",
         settings.webhook_port,
         settings.target_app_namespace,
     )

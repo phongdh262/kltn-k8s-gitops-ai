@@ -5,7 +5,7 @@ metadata:
   namespace: operations
   labels:
     app: chatops-agent
-    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/version: "1.2.0"
 spec:
   replicas: 1
   strategy:
@@ -43,7 +43,7 @@ spec:
       containers:
         - name: agent
           image: ghcr.io/phongdh262/kltn-chatops-agent:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 8000
               name: webhook-http
@@ -92,11 +92,23 @@ spec:
               value: "openai/gpt-oss-20b"
             - name: ENABLE_K8S_WATCHER
               value: "true"
+            - name: GITHUB_REPO
+              value: "phongdh262/kltn-k8s-gitops-ai"
+            - name: GITHUB_BRANCH
+              value: "main"
+            - name: GITOPS_MANIFEST_PATH
+              value: "Ha_tang/cau_hinh/05_ArgoCD_GitOps/manifests/web-app.yaml"
             - name: WEBHOOK_SECRET
               valueFrom:
                 secretKeyRef:
                   name: chatops-secrets
                   key: WEBHOOK_SECRET
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: chatops-secrets
+                  key: GITHUB_TOKEN
+                  optional: true
           resources:
             requests:
               cpu: 50m
