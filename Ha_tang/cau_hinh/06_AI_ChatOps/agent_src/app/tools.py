@@ -2,7 +2,7 @@ import asyncio
 import base64
 import io
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -366,7 +366,7 @@ async def get_deployment_replicas(
 def _sync_rollout_restart(namespace: str, deployment_name: str) -> str:
     k8s.ensure_loaded()
     assert k8s.apps_v1 is not None
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(UTC).isoformat()
     patch_body = {
         "spec": {
             "template": {

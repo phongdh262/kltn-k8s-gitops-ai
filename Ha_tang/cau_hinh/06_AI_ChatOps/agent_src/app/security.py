@@ -3,7 +3,7 @@ import time
 import uuid
 from collections import deque
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from app.config import settings
@@ -155,7 +155,7 @@ class SecurityAuditStore:
     def record_audit(
         self, actor: str, event_type: str, summary: str, status: str, detail: str = ""
     ) -> None:
-        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        now_str = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
         self._audit_log.appendleft(
             AuditEntry(
                 timestamp=now_str,
@@ -260,7 +260,7 @@ class ActionGovernanceStore:
     def record_audit(
         self, actor: str, action_type: str, summary: str, status: str, detail: str = ""
     ) -> None:
-        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        now_str = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
         self._audit_log.appendleft(
             AuditEntry(
                 timestamp=now_str,
