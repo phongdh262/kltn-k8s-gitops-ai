@@ -20,9 +20,19 @@
 Thực hiện từ **VPS 01 (`k3s-master`)**:
 
 ```bash
-# 1. Cấp khóa xác thực webhook-secret cho argocd-notifications-secret
+set -euo pipefail
+# 1. Đồng bộ khóa xác thực webhook-secret từ Secret chatops-secrets sang argocd-notifications-secret
+install -m 600 /dev/null argocd-webhook.secret.local.yaml
+kubectl get secret chatops-secrets -n operations -o json | python3 -c '
+import base64, json, sys
+key = json.load(sys.stdin)["data"]["WEBHOOK_SECRET"]
+value = base64.b64decode(key).decode().strip()
+if not value or (value.startswith("<") and value.endswith(">")):
+    sys.exit("WEBHOOK_SECRET thiếu hoặc còn placeholder")
+json.dump({"data": {"webhook-secret": key}}, sys.stdout)
+' > argocd-webhook.secret.local.yaml
 kubectl patch secret argocd-notifications-secret -n argocd --type merge \
-  -p '{"stringData":{"webhook-secret":"kltn-internal-wg-webhook-2026"}}'
+  --patch-file argocd-webhook.secret.local.yaml
 
 # 2. Áp dụng ConfigMap argocd-notifications-cm
 vi argocd-notifications-cm.yaml

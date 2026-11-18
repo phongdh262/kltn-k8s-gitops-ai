@@ -9,11 +9,6 @@
 ## 1. Cập nhật Container Image trên VPS 02 (`k3s-worker-01`)
 
 ```bash
-cd /tmp
-mkdir -p kltn && cd kltn
-git clone https://github.com/phongdh262/kltn-k8s-gitops-ai.git
-cd kltn-k8s-gitops-ai/Ha_tang/cau_hinh/06_AI_ChatOps/agent_src
-
 docker build -t ghcr.io/phongdh262/kltn-chatops-agent:v1.1 .
 docker save ghcr.io/phongdh262/kltn-chatops-agent:v1.1 | sudo k3s ctr images import -
 ```
@@ -23,9 +18,21 @@ docker save ghcr.io/phongdh262/kltn-chatops-agent:v1.1 | sudo k3s ctr images imp
 ## 2. Triển khai Service Webhook và `NetworkPolicy` trên VPS 01 (`k3s-master`)
 
 ```bash
-# 1. Cập nhật khóa xác thực WEBHOOK_SECRET trong Secret chatops-secrets
-kubectl patch secret chatops-secrets -n operations --type merge \
-  -p '{"stringData":{"WEBHOOK_SECRET":"kltn-internal-wg-webhook-2026"}}'
+set -euo pipefail
+# 1. Kiểm tra các trường bảo mật bắt buộc trong Secret chatops-secrets
+kubectl get secret chatops-secrets -n operations -o json | python3 -c '
+import base64, json, sys
+data = json.load(sys.stdin).get("data", {})
+required = ("TELEGRAM_BOT_TOKEN", "ALLOWED_CHAT_ID", "ALLOWED_USER_IDS", "WEBHOOK_SECRET")
+invalid = []
+for name in required:
+    value = base64.b64decode(data.get(name, "")).decode().strip()
+    if not value or (value.startswith("<") and value.endswith(">")):
+        invalid.append(name)
+if invalid:
+    sys.exit("Secret thiếu hoặc còn placeholder: " + ", ".join(invalid))
+print("Secret có đủ các trường bảo mật bắt buộc.")
+'
 
 # 2. Tạo Service ClusterIP cổng 8000
 vi 01-webhook-service.yaml

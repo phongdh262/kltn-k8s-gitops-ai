@@ -16,5 +16,4 @@ spec:
                 secretKeyRef:
                   name: chatops-secrets
                   key: WEBHOOK_SECRET
-                  optional: true
 

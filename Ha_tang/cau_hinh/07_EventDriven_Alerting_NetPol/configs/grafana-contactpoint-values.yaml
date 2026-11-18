@@ -1,4 +1,9 @@
 grafana:
+  envValueFrom:
+    CHATOPS_WEBHOOK_SECRET:
+      secretKeyRef:
+        name: grafana-webhook-auth
+        key: WEBHOOK_SECRET
   alerting:
     contactpoints.yaml:
       apiVersion: 1
@@ -13,8 +18,7 @@ grafana:
                 url: http://chatops-agent.operations.svc.cluster.local:8000/webhooks/grafana
                 httpMethod: POST
                 authorization_scheme: Bearer
-              secureSettings:
-                authorization_credentials: kltn-internal-wg-webhook-2026
+                authorization_credentials: $CHATOPS_WEBHOOK_SECRET
     policies.yaml:
       apiVersion: 1
       policies:

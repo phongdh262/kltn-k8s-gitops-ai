@@ -12,14 +12,37 @@
 Thực hiện từ **VPS 01 (`k3s-master`)**:
 
 ```bash
-# 1. Tạo file cấu hình Contact Point và Notification Policy
-vi grafana-contactpoint-values.yaml
+set -euo pipefail
+# 1. Đồng bộ khóa webhook từ Secret chatops-secrets sang Secret grafana-webhook-auth (namespace monitoring)
+install -m 600 /dev/null grafana-webhook.secret.local.yaml
+kubectl get secret chatops-secrets -n operations -o json | python3 -c '
+import base64, json, sys
+key = json.load(sys.stdin)["data"]["WEBHOOK_SECRET"]
+value = base64.b64decode(key).decode().strip()
+if not value or (value.startswith("<") and value.endswith(">")):
+    sys.exit("WEBHOOK_SECRET thiếu hoặc còn placeholder")
+json.dump({
+    "apiVersion": "v1", "kind": "Secret", "type": "Opaque",
+    "metadata": {"name": "grafana-webhook-auth", "namespace": "monitoring"},
+    "data": {"WEBHOOK_SECRET": key}
+}, sys.stdout)
+' > grafana-webhook.secret.local.yaml
+kubectl apply -f grafana-webhook.secret.local.yaml
 
-# 2. Nâng cấp bản cài đặt kube-prometheus-stack nạp cấu hình Webhook
+# 2. Xác định phiên bản chart đang cài và nâng cấp kube-prometheus-stack nạp cấu hình Webhook
+MONITORING_CHART_VERSION=$(helm list -n monitoring -o json | python3 -c '
+import json, sys
+release = next(r for r in json.load(sys.stdin) if r["name"] == "monitoring")
+print(release["chart"].removeprefix("kube-prometheus-stack-"))
+')
+
 helm upgrade monitoring prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
+  --version "$MONITORING_CHART_VERSION" \
   --reuse-values \
-  -f grafana-contactpoint-values.yaml
+  -f Ha_tang/cau_hinh/05_ArgoCD_GitOps/configs/monitoring-values.yaml \
+  -f Ha_tang/cau_hinh/07_EventDriven_Alerting_NetPol/configs/grafana-contactpoint-values.yaml \
+  --set grafana.adminPassword=null
 
 # 3. Khởi động lại Pod Grafana để nạp cấu hình và kiểm tra trạng thái
 kubectl rollout restart deploy/monitoring-grafana -n monitoring
